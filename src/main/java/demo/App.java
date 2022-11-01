@@ -3,6 +3,12 @@
  */
 package demo;
 
+import graphql.Scalars;
+import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.DataFetchingEnvironmentImpl;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.PropertyDataFetcher;
+
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -22,7 +28,7 @@ public class App {
         return (String) getGreeting.invoke(this);
     }
 
-    public <T> String classGreeting(Class<T> targetClass, Function<T, String> getter) throws Exception {
+    public <T> String classGreeting(Class<T> targetClass, Function<T, String> getter) {
         if (targetClass.isInstance(this)) {
             T t = targetClass.cast(this);
             return getter.apply(t);
@@ -30,7 +36,7 @@ public class App {
         return "nope";
     }
 
-    public <T> String lambaGreeting(Class<T> targetClass) throws Exception {
+    public <T> String lambdaGreeting(Class<T> targetClass) {
         try {
             Function<Object, Object> getGreeting = mkCallFunction(targetClass, "getGreeting", String.class);
             return (String) getGreeting.apply(this);
@@ -38,6 +44,19 @@ public class App {
             e.printStackTrace();
             return "nope";
         }
+    }
+
+    public String propertyFetchGreeting() {
+        GraphQLFieldDefinition fieldDefinition = GraphQLFieldDefinition.newFieldDefinition().name("greeting").type(Scalars.GraphQLString).build();
+        DataFetchingEnvironment dfe = DataFetchingEnvironmentImpl
+                .newDataFetchingEnvironment().source(this)
+                .fieldDefinition(fieldDefinition)
+                .fieldType(Scalars.GraphQLString)
+                .build();
+
+        PropertyDataFetcher<String> df = PropertyDataFetcher.fetching("greeting");
+        String ignored = df.get(dfe);
+        return df.get(dfe);
     }
 
 
@@ -60,6 +79,7 @@ public class App {
         System.out.printf("direct    - %s\n", app.getGreeting());
         System.out.printf("reflect   - %s\n", app.reflectGreeting());
         System.out.printf("class     - %s\n", app.classGreeting(app.getClass(), App::getGreeting));
-        System.out.printf("lambda    - %s\n", app.lambaGreeting(app.getClass()));
+        System.out.printf("dataFetch - %s\n", app.propertyFetchGreeting());
+        System.out.printf("lambda    - %s\n", app.lambdaGreeting(app.getClass()));
     }
 }
